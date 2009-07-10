@@ -24,17 +24,21 @@
 require 'net/http'
 require 'hpricot'
 require 'cgi'
+require 'openssl'
+require 'uri'
+require 'digest/sha2'
+require 'base64'
 
 module Amazon
   class RequestError < StandardError; end
   
   class Ecs
-    SERVICE_URLS = {:us => 'http://webservices.amazon.com/onca/xml?Service=AWSECommerceService',
-        :uk => 'http://webservices.amazon.co.uk/onca/xml?Service=AWSECommerceService',
-        :ca => 'http://webservices.amazon.ca/onca/xml?Service=AWSECommerceService',
-        :de => 'http://webservices.amazon.de/onca/xml?Service=AWSECommerceService',
-        :jp => 'http://webservices.amazon.co.jp/onca/xml?Service=AWSECommerceService',
-        :fr => 'http://webservices.amazon.fr/onca/xml?Service=AWSECommerceService'
+    SERVICE_URLS = {:us => 'http://webservices.amazon.com/onca/xml',
+        :uk => 'http://webservices.amazon.co.uk/onca/xml',
+        :ca => 'http://webservices.amazon.ca/onca/xml',
+        :de => 'http://webservices.amazon.de/onca/xml',
+        :jp => 'http://webservices.amazon.co.jp/onca/xml',
+        :fr => 'http://webservices.amazon.fr/onca/xml'
     }
     
     @@options = {}
@@ -185,24 +189,49 @@ module Amazon
       end
       
     private 
-      def self.prepare_url(opts)
-        country = opts.delete(:country)
-        country = (country.nil?) ? 'us' : country
-        request_url = SERVICE_URLS[country.to_sym]
-        raise Amazon::RequestError, "Invalid country '#{country}'" unless request_url
-        
-        qs = ''
-        opts.each {|k,v|
-          next unless v
-          v = v.join(',') if v.is_a? Array
-          qs << "&#{camelize(k.to_s)}=#{URI.encode(v.to_s)}"
-        }
-        "#{request_url}#{qs}"
+    def self.prepare_url(opts)
+      country = opts.delete(:country)
+      country = (country.nil?) ? 'us' : country
+      request_url = SERVICE_URLS[country.to_sym]
+      raise Amazon::RequestError, "Invalid country '#{country}'" unless request_url
+      secret_access_key = opts.delete(:secret_access_key)
+      raise Amazon::RequestError, "secret_access_key is nil" unless secret_access_key
+      opts[:Timestamp] = DateTime.now.new_offset.strftime('%Y-%m-%dT%XZ')
+      opts[:Service] = "AWSECommerceService"
+      opts[:Version] = "2009-01-06"
+      qs = opts.map do |k, v|
+        [camelize(k.to_s), v]
       end
-      
-      def self.camelize(s)
-        s.to_s.gsub(/\/(.?)/) { "::" + $1.upcase }.gsub(/(^|_)(.)/) { $2.upcase }
+      qs.reject! do |k,v| v.to_s.empty? end
+      qs.sort!
+      qs.map! do |k,v|
+        v = v.join(',') if v.is_a? Array
+        [k, CGI.escape(v.to_s)] * "="
       end
+      qs = qs * "&"
+      uri = URI.parse(request_url + "?" + qs)
+      msg = [ 'GET', uri.host, uri.path, uri.query ].join("\n")
+      dig = hmac_sha256(secret_access_key, msg)
+      sig = CGI.escape(Base64.encode64(dig).chomp)
+      "#{request_url}?#{qs}&Signature=#{sig}"
+    end
+
+    IPAD = "\x36"
+    OPAD = "\x5c"
+    def self.hmac_sha256(key, message)
+      ikey = IPAD * 64
+      okey = OPAD * 64
+      key.size.times do |i|
+        ikey[i] = key[i] ^ ikey[i]
+        okey[i] = key[i] ^ okey[i]
+      end
+      value = Digest::SHA256.digest(ikey + message)
+      value = Digest::SHA256.digest(okey + value)
+    end
+
+    def self.camelize(s)
+      s.to_s.gsub(/\/(.?)/) { "::" + $1.upcase }.gsub(/(^|_)(.)/) { $2.upcase }
+    end
   end
 
   # Internal wrapper class to provide convenient method to access Hpricot element value.
