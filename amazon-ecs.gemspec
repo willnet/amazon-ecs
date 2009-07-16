@@ -1,6 +1,4 @@
-require 'rake'
-
-Gem::Specification.new do |s| 
+Gem::Specification.new do |s|
   s.name = "amazon-ecs"
   s.version = "0.5.5"
   s.author = "Herryanto Siatono"
@@ -10,7 +8,6 @@ Gem::Specification.new do |s|
   s.summary = "Generic Amazon E-commerce Service (ECS) REST API. Supports ECS 4.0."
   s.files = ["lib/amazon", "lib/amazon/ecs.rb"]
   s.require_path = "lib"
-  # s.autorequire = "name"
   s.test_files = ["test/amazon/ecs_test.rb"]
   s.has_rdoc = true
   s.extra_rdoc_files = ["README", "CHANGELOG"]
