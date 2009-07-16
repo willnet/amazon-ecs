@@ -8,10 +8,10 @@ Gem::Specification.new do |s|
   s.homepage = "http://amazon-ecs.rubyforge.net/"
   s.platform = Gem::Platform::RUBY
   s.summary = "Generic Amazon E-commerce Service (ECS) REST API. Supports ECS 4.0."
-  s.files = FileList["{bin,lib}/**/*"].to_a
+  s.files = ["lib/amazon", "lib/amazon/ecs.rb"]
   s.require_path = "lib"
-  s.autorequire = "name"
-  s.test_files = FileList["{test}/**/*test.rb"].to_a
+  # s.autorequire = "name"
+  s.test_files = ["test/amazon/ecs_test.rb"]
   s.has_rdoc = true
   s.extra_rdoc_files = ["README", "CHANGELOG"]
   s.add_dependency("hpricot", ">= 0.4")
