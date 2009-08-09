@@ -206,13 +206,13 @@ module Amazon
       qs.sort!
       qs.map! do |k,v|
         v = v.join(',') if v.is_a? Array
-        [k, CGI.escape(v.to_s)] * "="
+        [k, URI.escape(v.to_s, /[^a-zA-z\d_.-]/)] * "="
       end
       qs = qs * "&"
       uri = URI.parse(request_url + "?" + qs)
       msg = [ 'GET', uri.host, uri.path, uri.query ].join("\n")
       dig = hmac_sha256(secret_access_key, msg)
-      sig = CGI.escape(Base64.encode64(dig).chomp)
+      sig = URI.escape(Base64.encode64(dig).chomp, /[^a-zA-z\d_.-]/)
       "#{request_url}?#{qs}&Signature=#{sig}"
     end
 
